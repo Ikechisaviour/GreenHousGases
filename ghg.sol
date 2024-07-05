@@ -28,11 +28,13 @@ contract ghg{
     mapping (address => company) companys;
     mapping (address => county) countys;
     mapping (address => string) used;
+    mapping (string => bool) usedName;
 
     function register(address _address, string memory _institution, string memory _name) external {
         bytes32 first = keccak256(abi.encodePacked(used[_address]));
         bytes32 second = keccak256(abi.encodePacked(empty));
         require(first == second, "address already registered");
+        require(usedName[_name] == false, "this name has been used before");
         if(keccak256(abi.encodePacked(_institution)) == keccak256(abi.encodePacked("company"))){
             companys[_address].name = _name;
             used[_address] = "company";
@@ -40,32 +42,34 @@ contract ghg{
             countys[_address].name = _name;
             used[_address] = "county";
         }
-        
+        usedName[_name] = true;
+
     }
 
-    function companyUpdate(address _county, uint _ghgQty, bool _ghgadding) external {
-        require(keccak256(abi.encodePacked(used[msg.sender])) == keccak256(abi.encodePacked("company")));
+    function companyUpdate(uint _ghgQty, bool _ghgadding) external {
+        require(keccak256(abi.encodePacked(used[msg.sender])) == keccak256(abi.encodePacked("company")), "the address is not a company");
+        address currentCounty = companys[msg.sender].county;
         if(_ghgadding == true){
         companys[msg.sender].addition = companys[msg.sender].addition + _ghgQty;
-        countys[_county].addition = countys[_county].addition + _ghgQty;
+        countys[currentCounty].addition = countys[currentCounty].addition + _ghgQty;
         }else if(_ghgadding == false){
         companys[msg.sender].subtraction = companys[msg.sender].subtraction + _ghgQty;
-        countys[_county].subtraction = countys[_county].subtraction + _ghgQty;
+        countys[currentCounty].subtraction = countys[currentCounty].subtraction + _ghgQty;
         }
 
-        recalculateGhg(_county);
+        recalculateGhg(currentCounty);
     }
 
     function recalculateGhg(address _county) private {
         if(companys[msg.sender].addition > companys[msg.sender].subtraction){
             companys[msg.sender].netEmission = companys[msg.sender].addition -companys[msg.sender].subtraction;
             companys[msg.sender].aboveZero = true;
-            countys[_county].netEmission = companys[_county].addition -companys[_county].subtraction;
+            countys[_county].netEmission = countys[_county].addition - countys[_county].subtraction;
             countys[_county].aboveZero = true;
         }else if(companys[msg.sender].addition < companys[msg.sender].subtraction){
             companys[msg.sender].netEmission = companys[msg.sender].subtraction -companys[msg.sender].addition;
             companys[msg.sender].aboveZero = false;
-            countys[_county].netEmission = companys[_county].subtraction -companys[_county].addition;
+            countys[_county].netEmission = countys[_county].subtraction - countys[_county].addition;
             countys[_county].aboveZero = false;
         }else {}
     }
